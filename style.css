@@ -1,0 +1,236 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Segoe UI", sans-serif;
+  background: #f5f5f7;
+  color: #333;
+}
+
+.container {
+  max-width: 900px;
+  margin: 24px auto;
+  padding: 24px;
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+}
+
+h1 {
+  margin-top: 0;
+  margin-bottom: 16px;
+  font-size: 1.8rem;
+  text-align: center;
+}
+
+h2 {
+  font-size: 1.3rem;
+  margin-top: 0;
+  margin-bottom: 12px;
+}
+
+h3 {
+  font-size: 1.1rem;
+  margin-top: 16px;
+  margin-bottom: 8px;
+}
+
+.screen {
+  display: none;
+  margin-top: 16px;
+}
+
+.screen.active {
+  display: block;
+}
+
+.message {
+  margin-top: 8px;
+  color: #c00;
+  min-height: 1.2em;
+}
+
+.hint {
+  font-size: 0.9rem;
+  color: #666;
+  margin-top: 8px;
+}
+
+.choice-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 24px;
+}
+
+.btn {
+  padding: 10px 18px;
+  border-radius: 999px;
+  border: none;
+  cursor: pointer;
+  font-size: 0.95rem;
+  min-width: 120px;
+  transition: transform 0.05s ease-out, box-shadow 0.05s ease-out, background 0.1s;
+}
+
+.btn:active {
+  transform: translateY(1px);
+  box-shadow: none;
+}
+
+.btn.primary {
+  background: #0066ff;
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(0, 102, 255, 0.4);
+}
+
+.btn.primary:hover {
+  background: #0052cc;
+}
+
+.btn.secondary {
+  background: #e0e0e7;
+  color: #333;
+}
+
+.btn-yes {
+  background: #00b894;
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(0, 184, 148, 0.4);
+}
+
+.btn-yes:hover {
+  background: #009f7f;
+}
+
+.btn-no {
+  background: #d63031;
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(214, 48, 49, 0.4);
+}
+
+.btn-no:hover {
+  background: #b02525;
+}
+
+input[type="number"],
+input[type="text"],
+select {
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid #ccc;
+  font-size: 0.95rem;
+  min-width: 120px;
+}
+
+input[type="file"] {
+  margin-top: 8px;
+}
+
+.name-list {
+  margin-top: 12px;
+  border: 1px solid #ddd;
+  padding: 10px 12px;
+  border-radius: 12px;
+  max-height: 260px;
+  overflow-y: auto;
+  background: #fafafa;
+}
+
+.name-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+}
+
+.name-item label {
+  cursor: pointer;
+}
+
+.ho-block {
+  border: 1px solid #ddd;
+  border-radius: 12px;
+  padding: 10px 12px;
+  margin-bottom: 12px;
+  background: #fafafa;
+}
+
+.ho-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.ho-label-prefix {
+  font-weight: bold;
+}
+
+.ho-name-input {
+  width: 80px;
+}
+
+.result-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+
+#resultCount {
+  font-size: 0.9rem;
+  color: #666;
+}
+
+.result-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.result-table th,
+.result-table td {
+  padding: 6px 8px;
+  border-bottom: 1px solid #eee;
+  vertical-align: top;
+  white-space: pre-line; /* 改行を表示 */
+}
+
+.result-table th {
+  background: #f0f0f4;
+  position: sticky;
+  top: 0;
+}
+
+.badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.8rem;
+}
+
+.badge.weekday {
+  background: #e0f2ff;
+  color: #045;
+}
+
+.badge.holiday {
+  background: #ffe6e6;
+  color: #700;
+}
+
+.badge.delta {
+  background: #fff3cd;
+  color: #856404;
+}
+
+#resultArea {
+  max-height: 420px;
+  overflow-y: auto;
+  border-radius: 12px;
+  border: 1px solid #ddd;
+}

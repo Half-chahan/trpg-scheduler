@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>TRPG 日程調整ツール</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="container">
+    <h1>TRPG 日程調整ツール</h1>
+
+    <!-- 1. CSV アップロード -->
+    <section id="screen-upload" class="screen active">
+      <h2>1. 日程調整 CSV をアップロード</h2>
+      <p>調整さんからダウンロードしたCSV ファイルを選択してください。（複数ファイル可）</p>
+      <input type="file" id="csvInput" accept=".csv" multiple>
+      <p id="uploadMessage" class="message"></p>
+    </section>
+
+    <!-- 2. HO制かどうか -->
+    <section id="screen-ho-question" class="screen">
+      <h2>2. シナリオは HO 制ですか？</h2>
+      <div class="choice-row">
+        <button id="btnHoYes" class="btn btn-yes">はい（HO 制）</button>
+        <button id="btnHoNo" class="btn btn-no">いいえ（HO なし）</button>
+      </div>
+    </section>
+
+    <!-- 3-1. PL 数入力（HO なしのときのみ） -->
+    <section id="screen-pl-count" class="screen">
+      <h2>3. PL の人数</h2>
+      <label>
+        PL 数：
+        <input type="number" id="plCountInput" min="1" step="1">
+      </label>
+      <p class="hint">※ KP を除いたプレイヤー人数です。</p>
+      <button id="btnPlCountNext" class="btn primary">次へ</button>
+    </section>
+
+    <!-- 3 or 4. KP 選択 -->
+    <section id="screen-select-kp" class="screen">
+      <h2>3. KP を選択</h2>
+      <p>KP、SKPを選択してください（複数選択可）。</p>
+      <div id="kpList" class="name-list"></div>
+      <button id="btnKpNext" class="btn primary">次へ</button>
+    </section>
+
+    <!-- 5. PL 選択（HO なし） -->
+    <section id="screen-select-pl" class="screen">
+      <h2>4. PL 候補を選択</h2>
+      <p>
+        PL 候補を選択してください。<br>
+        選択したPL 候補の中から <span id="plCountDisplay"></span>が参加する前提で組み合わせを検索します。
+      </p>
+      <div id="plList" class="name-list"></div>
+      <button id="btnPlNext" class="btn primary">次へ</button>
+    </section>
+
+    <!-- 5. HO ごとの PL 候補選択（HO 制） -->
+    <section id="screen-select-ho" class="screen">
+      <h2>4. HO ごとの PL 候補を選択</h2>
+      <p>
+        HO ごとにPL 候補を選択してください。<br>
+        HO 名は変更可能です。HO は追加もできます。
+      </p>
+
+      <div id="hoContainer"></div>
+
+      <button id="btnAddHo" class="btn secondary">HO を追加</button>
+      <button id="btnHoNext" class="btn primary">次へ</button>
+    </section>
+
+    <!-- 6. 所要時間入力 + 手動祝日指定 + △の扱い + 最大件数設定 -->
+    <section id="screen-duration" class="screen">
+      <h2>5. 所要時間の指定</h2>
+      <p>このシナリオに必要な時間（時間）を整数で入力してください。</p>
+      <label>
+        所要時間：
+        <input type="number" id="durationInput" min="1" step="1"> 時間
+      </label>
+      <p class="hint">
+        平日は 3 時間 / 休日（土日）は 15 時間ぶんの枠として扱います。<br>
+        2,3,8,9 月は長期休暇のため自動的にすべて休日扱いになります。
+      </p>
+
+      <h3>任意の祝日指定</h3>
+      <p>祝日として扱いたい日付を <strong>月/日</strong> 形式でカンマ区切りで入力してください。（例: <code>5/4, 11/23</code>）</p>
+      <label>
+        祝日扱いの日付：
+        <input type="text" id="manualHolidaysInput" placeholder="5/4, 11/23">
+      </label>
+      <p class="hint">
+        ここで指定した日付は平日でも休日（15時間）として計算されます。
+      </p>
+
+      <h3>△ の扱い</h3>
+      <div id="deltaModeContainer">
+        <label>
+          <input type="radio" name="deltaMode" id="deltaInclude" value="include" checked>
+          △ も候補に含める
+        </label><br>
+        <label>
+          <input type="radio" name="deltaMode" id="deltaExclude" value="exclude">
+          △ は候補に含めない（◯のみを使用）
+        </label>
+      </div>
+      <p class="hint">
+        △ を含めない場合、全員が ◯ の日程だけで候補を計算します（組み合わせ数が減ります）。
+      </p>
+
+      <h3>結果の最大件数</h3>
+      <label>
+        最大候補数：
+        <select id="maxResultsSelect">
+          <option value="100">100 件</option>
+          <option value="500" selected>500 件</option>
+          <option value="1000">1000 件</option>
+          <option value="3000">3000 件</option>
+          <option value="none">上限なし</option>
+        </select>
+      </label>
+      <p class="hint">
+        組み合わせが多い場合は、ここで上限を小さめに設定するとフリーズを防ぎやすくなります。
+      </p>
+
+      <button id="btnRunSearch" class="btn primary">検索実行</button>
+    </section>
+
+    <!-- 7. 結果表示 -->
+    <section id="screen-results" class="screen">
+      <h2>検索結果</h2>
+      <div class="result-controls">
+        <label>
+          並び替え：
+          <select id="sortModeSelect">
+            <option value="holidayFirst">休日優先</option>
+            <option value="weekdayFirst">平日優先</option>
+            <option value="mixed">混合</option>
+          </select>
+        </label>
+        <span id="resultCount"></span>
+      </div>
+
+      <div id="resultArea"></div>
+
+      <button id="btnRestart" class="btn secondary">最初からやり直す</button>
+    </section>
+  </main>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>
