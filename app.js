@@ -1,6 +1,6 @@
 // app.js
 import { parseScheduleCsv } from "./csvParser.js";
-import { computeNonHoResults, computeHoResults, sortResults } from "./scheduler.js";
+import { sortResults } from "./scheduler.js";
 
 const state = {
   csvParsed: null,     // { participants, days } （複数 CSV をマージした結果）
@@ -15,7 +15,9 @@ const state = {
   rawResults: [],
   sortMode: "holidayFirst",
   allowDelta: true,    // △ を候補に含めるかどうか
-  searchAborted: false // 探索ステップ上限により途中打ち切りされたか
+  searchAborted: false, // 探索ステップ上限により途中打ち切りされたか
+  searchInProgress: false,
+  searchCancelled: false
 };
 
 // DOM 要素取得
@@ -58,11 +60,21 @@ const maxResultsSelect = document.getElementById("maxResultsSelect");
 const deltaIncludeRadio = document.getElementById("deltaInclude");
 const deltaExcludeRadio = document.getElementById("deltaExclude");
 const btnRunSearch = document.getElementById("btnRunSearch");
+const searchStatus = document.getElementById("searchStatus");
+const searchStatusMessage = document.getElementById("searchStatusMessage");
+const searchProgress = document.getElementById("searchProgress");
+const searchProgressText = document.getElementById("searchProgressText");
+const searchStepText = document.getElementById("searchStepText");
+const btnCancelSearch = document.getElementById("btnCancelSearch");
 
 const sortModeSelect = document.getElementById("sortModeSelect");
 const resultArea = document.getElementById("resultArea");
 const resultCount = document.getElementById("resultCount");
 const btnRestart = document.getElementById("btnRestart");
+
+let schedulerWorker = null;
+let activeSearchId = 0;
+let lastMaxResultsForDisplay = null;
 
 // 共通：画面切り替え
 function showScreen(name) {
@@ -88,6 +100,12 @@ function resetState() {
   state.sortMode = "holidayFirst";
   state.allowDelta = true;
   state.searchAborted = false;
+  state.searchInProgress = false;
+  state.searchCancelled = false;
+
+  if (searchStatus) {
+    searchStatus.classList.add("hidden");
+  }
 
   uploadMessage.textContent = "";
   uploadMessage.style.color = "#c00";
@@ -109,6 +127,21 @@ function resetState() {
   if (deltaIncludeRadio && deltaExcludeRadio) {
     deltaIncludeRadio.checked = true;
     deltaExcludeRadio.checked = false;
+  }
+  if (searchProgress) {
+    searchProgress.value = 0;
+  }
+  if (searchProgressText) {
+    searchProgressText.textContent = "0%";
+  }
+  if (searchStatusMessage) {
+    searchStatusMessage.textContent = "";
+  }
+  if (searchStepText) {
+    searchStepText.textContent = "";
+  }
+  if (btnCancelSearch) {
+    btnCancelSearch.disabled = true;
   }
   resultArea.innerHTML = "";
   resultCount.textContent = "";
@@ -465,6 +498,107 @@ function parseManualHolidays(text) {
 }
 
 // 所要時間 → 検索実行
+function getSchedulerWorker() {
+  if (!schedulerWorker) {
+    schedulerWorker = new Worker("./schedulerWorker.js", { type: "module" });
+    schedulerWorker.addEventListener("message", handleWorkerMessage);
+    schedulerWorker.addEventListener("error", handleWorkerError);
+  }
+  return schedulerWorker;
+}
+
+function handleWorkerError(event) {
+  console.error(event);
+  state.searchInProgress = false;
+  if (btnRunSearch) {
+    btnRunSearch.disabled = false;
+  }
+  if (btnCancelSearch) {
+    btnCancelSearch.disabled = true;
+  }
+  if (searchStatusMessage) {
+    searchStatusMessage.textContent = "探索中にエラーが発生しました。";
+    searchStatusMessage.style.color = "#c00";
+  }
+}
+
+function updateSearchProgress(steps, limit, daySetCount) {
+  if (!searchProgress || !searchProgressText || !searchStepText) return;
+
+  if (typeof limit === "number" && isFinite(limit) && limit > 0) {
+    const clamped = Math.min(steps, limit);
+    const percent = Math.min(100, Math.floor((clamped / limit) * 100));
+    searchProgress.max = limit;
+    searchProgress.value = clamped;
+    searchProgressText.textContent = `${percent}%`;
+    searchStepText.textContent =
+      `探索ステップ: ${steps.toLocaleString()} / ${limit.toLocaleString()} | 候補数: ${daySetCount.toLocaleString()}`;
+  } else {
+    searchProgress.removeAttribute("max");
+    searchProgress.value = 0;
+    searchProgressText.textContent = "...";
+    searchStepText.textContent = `探索ステップ: ${steps.toLocaleString()} | 候補数: ${daySetCount.toLocaleString()}`;
+  }
+}
+
+function handleWorkerMessage(event) {
+  const msg = event.data || {};
+  if (msg.requestId !== activeSearchId) return;
+
+  if (msg.type === "progress") {
+    updateSearchProgress(msg.steps || 0, msg.limit, msg.daySetCount || 0);
+    return;
+  }
+
+  if (msg.type === "error") {
+    handleWorkerError(msg);
+    return;
+  }
+
+  if (msg.type === "result") {
+    state.searchInProgress = false;
+    if (btnRunSearch) {
+      btnRunSearch.disabled = false;
+    }
+    if (btnCancelSearch) {
+      btnCancelSearch.disabled = true;
+    }
+
+    if (msg.cancelled) {
+      state.searchCancelled = true;
+      if (searchStatusMessage) {
+        searchStatusMessage.textContent = "探索をキャンセルしました。";
+        searchStatusMessage.style.color = "#666";
+      }
+      return;
+    }
+
+    state.rawResults = msg.results || [];
+    state.searchAborted = !!msg.aborted;
+    if (searchStatus) {
+      searchStatus.classList.add("hidden");
+    }
+
+    renderResults(lastMaxResultsForDisplay);
+    showScreen("results");
+  }
+}
+
+if (btnCancelSearch) {
+  btnCancelSearch.addEventListener("click", () => {
+    if (!state.searchInProgress || !schedulerWorker) return;
+    btnCancelSearch.disabled = true;
+    if (searchStatusMessage) {
+      searchStatusMessage.textContent = "キャンセル要求を送信しました...";
+      searchStatusMessage.style.color = "#666";
+    }
+    schedulerWorker.postMessage({
+      type: "cancel",
+      requestId: activeSearchId,
+    });
+  });
+}
+
 btnRunSearch.addEventListener("click", () => {
   const hours = parseInt(durationInput.value, 10);
   if (Number.isNaN(hours) || hours <= 0) {
@@ -493,6 +627,7 @@ btnRunSearch.addEventListener("click", () => {
   state.weekdayHours = weekdayHours;
   state.weekendHours = weekendHours;
   state.searchAborted = false;
+  state.searchCancelled = false;
 
   // △ の扱い
   const allowDelta =
@@ -536,24 +671,35 @@ btnRunSearch.addEventListener("click", () => {
   // 探索ステップ上限（現状は内部デフォルト任せ。必要ならここから値を渡してもよい）
   const searchLimit = undefined;
 
-  let computeResult;
-  if (!state.isHo) {
-    computeResult = computeNonHoResults({
+  if (btnRunSearch) {
+    btnRunSearch.disabled = true;
+  }
+  if (searchStatus) {
+    searchStatus.classList.remove("hidden");
+  }
+  if (searchStatusMessage) {
+    searchStatusMessage.textContent = "探索中...";
+    searchStatusMessage.style.color = "#0066aa";
+  }
+  if (btnCancelSearch) {
+    btnCancelSearch.disabled = false;
+  }
+  updateSearchProgress(0, 1, 0);
+
+  state.searchInProgress = true;
+  activeSearchId += 1;
+  lastMaxResultsForDisplay = maxResults;
+
+  const worker = getSchedulerWorker();
+  worker.postMessage({
+    type: "start",
+    requestId: activeSearchId,
+    payload: {
+      isHo: state.isHo,
       days,
       kpNames: state.kpNames,
       plCandidates: state.plCandidates,
       plCount: state.plCount,
-      requiredHours: state.requiredHours,
-      weekdayHours: state.weekdayHours,
-      weekendHours: state.weekendHours,
-      maxResults,
-      allowDelta,
-      searchLimit,
-    });
-  } else {
-    computeResult = computeHoResults({
-      days,
-      kpNames: state.kpNames,
       hoList: state.hoList,
       requiredHours: state.requiredHours,
       weekdayHours: state.weekdayHours,
@@ -561,14 +707,8 @@ btnRunSearch.addEventListener("click", () => {
       maxResults,
       allowDelta,
       searchLimit,
-    });
-  }
-
-  state.rawResults = computeResult.results;
-  state.searchAborted = computeResult.aborted;
-
-  renderResults(maxResults);
-  showScreen("results");
+    },
+  });
 });
 
 // 並べ替え変更

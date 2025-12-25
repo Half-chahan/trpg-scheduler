@@ -2,7 +2,7 @@
 
 // 日程候補探索の「安全弁」用ステップ上限
 // これ以上バックトラックを回したら、探索を打ち切る
-const DEFAULT_SEARCH_STEP_LIMIT = 250000;
+const DEFAULT_SEARCH_STEP_LIMIT = 25000000;
 const DEFAULT_WEEKDAY_HOURS = 3;
 const DEFAULT_WEEKEND_HOURS = 15;
 
@@ -104,7 +104,9 @@ function buildCandidateDaySets(
   requiredHours,
   searchLimit,
   weekdayHours,
-  weekendHours
+  weekendHours,
+  onProgress,
+  shouldAbort
 ) {
   const sorted = days.slice().sort((a, b) => a.dateKey - b.dateKey);
   const rawResult = [];
@@ -124,6 +126,9 @@ function buildCandidateDaySets(
     typeof searchLimit === "number" && searchLimit > 0
       ? searchLimit
       : DEFAULT_SEARCH_STEP_LIMIT;
+  const progressInterval = 2000;
+  const abortCheck =
+    typeof shouldAbort === "function" ? shouldAbort : () => false;
 
   let aborted = false;
   let steps = 0;
@@ -142,11 +147,24 @@ function buildCandidateDaySets(
       suffix[k] = suffix[k + 1] + caps[k];
     }
 
+    if (abortCheck()) {
+      aborted = true;
+      break;
+    }
+
     function backtrack(pos, chosenIdx, capSoFar) {
       if (aborted) return;
 
+      if (abortCheck()) {
+        aborted = true;
+        return;
+      }
+
       // 探索ステップカウント
       steps++;
+      if (onProgress && steps % progressInterval === 0) {
+        onProgress({ steps, limit, daySetCount: rawResult.length });
+      }
       if (steps > limit) {
         aborted = true;
         return;
@@ -195,11 +213,37 @@ function buildCandidateDaySets(
     backtrack(0, [], 0);
   }
 
+  if (onProgress) {
+    onProgress({ steps, limit, daySetCount: rawResult.length });
+  }
+
+  if (aborted || abortCheck()) {
+    return {
+      daySets: rawResult.map((entry) => ({
+        days: entry.days,
+        isContinuousSpan: entry.isContinuousSpan,
+      })),
+      aborted: true,
+    };
+  }
+
   // --- 冗長な集合を削る ---
   // 「ある候補 A の日付集合の厳密な部分集合 B が存在する」場合、
   // A は B より冗長なので削除する。
+  const pruneMaxCandidates = 20000;
+  if (rawResult.length > pruneMaxCandidates) {
+    return {
+      daySets: rawResult.map((entry) => ({
+        days: entry.days,
+        isContinuousSpan: entry.isContinuousSpan,
+      })),
+      aborted: aborted || abortCheck(),
+    };
+  }
+
   const final = [];
   const m = rawResult.length;
+  const pruneProgressInterval = 2000;
 
   function isStrictSubset(small, big) {
     if (small.length >= big.length) return false;
@@ -220,6 +264,18 @@ function buildCandidateDaySets(
   }
 
   for (let i = 0; i < m; i++) {
+    if (abortCheck()) {
+      return {
+        daySets: rawResult.map((entry) => ({
+          days: entry.days,
+          isContinuousSpan: entry.isContinuousSpan,
+        })),
+        aborted: true,
+      };
+    }
+    if (onProgress && i % pruneProgressInterval === 0) {
+      onProgress({ steps, limit, daySetCount: rawResult.length });
+    }
     let dominated = false;
     const keyI = rawResult[i].keyArray;
     for (let j = 0; j < m; j++) {
@@ -258,33 +314,41 @@ function buildCandidateDaySets(
 export function computeNonHoResults({
   days,
   kpNames,
- plCandidates,
- plCount,
- requiredHours,
+  plCandidates,
+  plCount,
+  requiredHours,
   weekdayHours,
   weekendHours,
- maxResults,
- allowDelta,
- searchLimit,
+  maxResults,
+  allowDelta,
+  searchLimit,
+  onProgress,
+  shouldAbort,
 }) {
   const results = [];
   const limit =
-    typeof maxResults === "number" && maxResults > 0
-      ? maxResults
-      : Infinity;
+    typeof maxResults === "number" && maxResults > 0 ? maxResults : Infinity;
 
   const { daySets, aborted: abortedByDaySets } = buildCandidateDaySets(
     days,
     requiredHours,
     searchLimit,
     weekdayHours,
-    weekendHours
+    weekendHours,
+    onProgress,
+    shouldAbort
   );
-  let aborted = abortedByDaySets;
+  const abortCheck =
+    typeof shouldAbort === "function" ? shouldAbort : () => false;
+  let aborted = abortedByDaySets || abortCheck();
 
   const plCombos = combinations(plCandidates, plCount);
 
   for (const set of daySets) {
+    if (abortCheck()) {
+      aborted = true;
+      break;
+    }
     if (results.length >= limit) break;
 
     const spanDays = set.days;
@@ -298,6 +362,10 @@ export function computeNonHoResults({
     if (!kpCheck.ok) continue;
 
     for (const plGroup of plCombos) {
+      if (abortCheck()) {
+        aborted = true;
+        break;
+      }
       if (results.length >= limit) break;
 
       const allMembers = kpNames.concat(plGroup);
@@ -340,32 +408,40 @@ export function computeNonHoResults({
 export function computeHoResults({
   days,
   kpNames,
- hoList,
- requiredHours,
+  hoList,
+  requiredHours,
   weekdayHours,
   weekendHours,
- maxResults,
- allowDelta,
- searchLimit,
+  maxResults,
+  allowDelta,
+  searchLimit,
+  onProgress,
+  shouldAbort,
 }) {
   const results = [];
   const limit =
-    typeof maxResults === "number" && maxResults > 0
-      ? maxResults
-      : Infinity;
+    typeof maxResults === "number" && maxResults > 0 ? maxResults : Infinity;
 
   const { daySets, aborted: abortedByDaySets } = buildCandidateDaySets(
     days,
     requiredHours,
     searchLimit,
     weekdayHours,
-    weekendHours
+    weekendHours,
+    onProgress,
+    shouldAbort
   );
-  let aborted = abortedByDaySets;
+  const abortCheck =
+    typeof shouldAbort === "function" ? shouldAbort : () => false;
+  let aborted = abortedByDaySets || abortCheck();
 
   for (const set of daySets) {
     if (results.length >= limit) break;
     if (aborted) break;
+    if (abortCheck()) {
+      aborted = true;
+      break;
+    }
 
     const spanDays = set.days;
 
@@ -398,6 +474,10 @@ export function computeHoResults({
     function backtrack(index) {
       if (results.length >= limit) return;
       if (aborted) return;
+      if (abortCheck()) {
+        aborted = true;
+        return;
+      }
 
       if (index >= hoList.length) {
         // 割り当て完成 → 全メンバーでチェック
@@ -476,7 +556,15 @@ export function sortResults(results, sortMode) {
     const firstKey = totalDays ? days[0].dateKey : 0;
     const lastKey = totalDays ? days[totalDays - 1].dateKey : 0;
     const span = lastKey - firstKey;
-    return { totalDays, numWeekend, numWeekday, weekendRatio, firstKey, lastKey, span };
+    return {
+      totalDays,
+      numWeekend,
+      numWeekday,
+      weekendRatio,
+      firstKey,
+      lastKey,
+      span,
+    };
   }
 
   sorted.sort((a, b) => {
@@ -533,4 +621,3 @@ export function sortResults(results, sortMode) {
 
   return sorted;
 }
-

@@ -134,6 +134,16 @@
       </p>
 
       <button id="btnRunSearch" class="btn primary">検索実行</button>
+
+      <div id="searchStatus" class="search-status hidden">
+        <p id="searchStatusMessage" class="search-message">探索中...</p>
+        <div class="search-row">
+          <progress id="searchProgress" value="0" max="100"></progress>
+          <span id="searchProgressText">0%</span>
+        </div>
+        <p id="searchStepText" class="hint"></p>
+        <button id="btnCancelSearch" class="btn secondary" type="button">探索をキャンセル</button>
+      </div>
     </section>
 
     <!-- 7. 結果表示 -->
