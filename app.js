@@ -10,6 +10,8 @@ const state = {
   plCandidates: [],    // HO なし時の PL 候補
   hoList: [],          // HO 制時 [{ label, suffix, candidates }]
   requiredHours: null,
+  weekdayHours: 3,
+  weekendHours: 15,
   rawResults: [],
   sortMode: "holidayFirst",
   allowDelta: true,    // △ を候補に含めるかどうか
@@ -49,6 +51,8 @@ const btnAddHo = document.getElementById("btnAddHo");
 const btnHoNext = document.getElementById("btnHoNext");
 
 const durationInput = document.getElementById("durationInput");
+const weekdayHoursInput = document.getElementById("weekdayHoursInput");
+const weekendHoursInput = document.getElementById("weekendHoursInput");
 const manualHolidaysInput = document.getElementById("manualHolidaysInput");
 const maxResultsSelect = document.getElementById("maxResultsSelect");
 const deltaIncludeRadio = document.getElementById("deltaInclude");
@@ -78,6 +82,8 @@ function resetState() {
   state.plCandidates = [];
   state.hoList = [];
   state.requiredHours = null;
+  state.weekdayHours = 3;
+  state.weekendHours = 15;
   state.rawResults = [];
   state.sortMode = "holidayFirst";
   state.allowDelta = true;
@@ -90,6 +96,12 @@ function resetState() {
   plList.innerHTML = "";
   hoContainer.innerHTML = "";
   durationInput.value = "";
+  if (weekdayHoursInput) {
+    weekdayHoursInput.value = "3";
+  }
+  if (weekendHoursInput) {
+    weekendHoursInput.value = "15";
+  }
   manualHolidaysInput.value = "";
   if (maxResultsSelect) {
     maxResultsSelect.value = "500";
@@ -460,12 +472,26 @@ btnRunSearch.addEventListener("click", () => {
     return;
   }
 
+  const weekdayHours = parseInt(weekdayHoursInput?.value, 10);
+  if (Number.isNaN(weekdayHours) || weekdayHours <= 0) {
+    alert("1 以上の平日時間を入力してください。");
+    return;
+  }
+
+  const weekendHours = parseInt(weekendHoursInput?.value, 10);
+  if (Number.isNaN(weekendHours) || weekendHours <= 0) {
+    alert("1 以上の休日時間を入力してください。");
+    return;
+  }
+
   if (!state.csvParsed) {
     alert("先に CSV を読み込んでください。");
     return;
   }
 
   state.requiredHours = hours;
+  state.weekdayHours = weekdayHours;
+  state.weekendHours = weekendHours;
   state.searchAborted = false;
 
   // △ の扱い
@@ -518,6 +544,8 @@ btnRunSearch.addEventListener("click", () => {
       plCandidates: state.plCandidates,
       plCount: state.plCount,
       requiredHours: state.requiredHours,
+      weekdayHours: state.weekdayHours,
+      weekendHours: state.weekendHours,
       maxResults,
       allowDelta,
       searchLimit,
@@ -528,6 +556,8 @@ btnRunSearch.addEventListener("click", () => {
       kpNames: state.kpNames,
       hoList: state.hoList,
       requiredHours: state.requiredHours,
+      weekdayHours: state.weekdayHours,
+      weekendHours: state.weekendHours,
       maxResults,
       allowDelta,
       searchLimit,
