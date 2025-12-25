@@ -2,7 +2,7 @@
 
 // 日程候補探索の「安全弁」用ステップ上限
 // これ以上バックトラックを回したら、探索を打ち切る
-const DEFAULT_SEARCH_STEP_LIMIT = 150000;
+const DEFAULT_SEARCH_STEP_LIMIT = 250000;
 const DEFAULT_WEEKDAY_HOURS = 3;
 const DEFAULT_WEEKEND_HOURS = 15;
 
@@ -533,3 +533,4 @@ export function sortResults(results, sortMode) {
 
   return sorted;
 }
+
