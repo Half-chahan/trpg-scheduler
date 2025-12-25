@@ -3,13 +3,15 @@
 // 日程候補探索の「安全弁」用ステップ上限
 // これ以上バックトラックを回したら、探索を打ち切る
 const DEFAULT_SEARCH_STEP_LIMIT = 150000;
+const DEFAULT_WEEKDAY_HOURS = 3;
+const DEFAULT_WEEKEND_HOURS = 15;
 
 /**
  * 1 日あたりの時間枠
- * isWeekend が true の日を 15 時間、それ以外を 3 時間として扱う
+ * isWeekend が true の日を weekendHours、それ以外を weekdayHours として扱う
  */
-function dayCapacity(day) {
-  return day.isWeekend ? 15 : 3;
+function dayCapacity(day, weekdayHours, weekendHours) {
+  return day.isWeekend ? weekendHours : weekdayHours;
 }
 
 /**
@@ -97,11 +99,26 @@ function combinations(arr, k) {
  *  - さらに最後に「厳密な部分集合が存在するもの」を冗長として削る
  *  - 探索ステップが searchLimit を超えたら aborted = true
  */
-function buildCandidateDaySets(days, requiredHours, searchLimit) {
+function buildCandidateDaySets(
+  days,
+  requiredHours,
+  searchLimit,
+  weekdayHours,
+  weekendHours
+) {
   const sorted = days.slice().sort((a, b) => a.dateKey - b.dateKey);
   const rawResult = [];
   const seen = new Set();
   const n = sorted.length;
+
+  const effectiveWeekdayHours =
+    typeof weekdayHours === "number" && weekdayHours > 0
+      ? weekdayHours
+      : DEFAULT_WEEKDAY_HOURS;
+  const effectiveWeekendHours =
+    typeof weekendHours === "number" && weekendHours > 0
+      ? weekendHours
+      : DEFAULT_WEEKEND_HOURS;
 
   const limit =
     typeof searchLimit === "number" && searchLimit > 0
@@ -116,7 +133,9 @@ function buildCandidateDaySets(days, requiredHours, searchLimit) {
     const wLen = window.length;
     if (wLen === 0) continue;
 
-    const caps = window.map(dayCapacity);
+    const caps = window.map((day) =>
+      dayCapacity(day, effectiveWeekdayHours, effectiveWeekendHours)
+    );
     const suffix = new Array(wLen + 1);
     suffix[wLen] = 0;
     for (let k = wLen - 1; k >= 0; k--) {
@@ -239,12 +258,14 @@ function buildCandidateDaySets(days, requiredHours, searchLimit) {
 export function computeNonHoResults({
   days,
   kpNames,
-  plCandidates,
-  plCount,
-  requiredHours,
-  maxResults,
-  allowDelta,
-  searchLimit,
+ plCandidates,
+ plCount,
+ requiredHours,
+  weekdayHours,
+  weekendHours,
+ maxResults,
+ allowDelta,
+ searchLimit,
 }) {
   const results = [];
   const limit =
@@ -255,7 +276,9 @@ export function computeNonHoResults({
   const { daySets, aborted: abortedByDaySets } = buildCandidateDaySets(
     days,
     requiredHours,
-    searchLimit
+    searchLimit,
+    weekdayHours,
+    weekendHours
   );
   let aborted = abortedByDaySets;
 
@@ -317,11 +340,13 @@ export function computeNonHoResults({
 export function computeHoResults({
   days,
   kpNames,
-  hoList,
-  requiredHours,
-  maxResults,
-  allowDelta,
-  searchLimit,
+ hoList,
+ requiredHours,
+  weekdayHours,
+  weekendHours,
+ maxResults,
+ allowDelta,
+ searchLimit,
 }) {
   const results = [];
   const limit =
@@ -332,7 +357,9 @@ export function computeHoResults({
   const { daySets, aborted: abortedByDaySets } = buildCandidateDaySets(
     days,
     requiredHours,
-    searchLimit
+    searchLimit,
+    weekdayHours,
+    weekendHours
   );
   let aborted = abortedByDaySets;
 
