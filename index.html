@@ -79,9 +79,19 @@
         <input type="number" id="durationInput" min="1" step="1"> 時間
       </label>
       <p class="hint">
-        平日は 3 時間 / 休日（土日）は 15 時間ぶんの枠として扱います。<br>
+        下記の「1 日あたりの時間」で日程の時間枠を計算します。<br>
         2,3,8,9 月は長期休暇のため自動的にすべて休日扱いになります。
       </p>
+
+      <h3>1 日あたりの時間</h3>
+      <label>
+        平日
+        <input type="number" id="weekdayHoursInput" min="1" step="1" value="3"> 時間
+      </label>
+      <label>
+        休日（土日・長期休暇）
+        <input type="number" id="weekendHoursInput" min="1" step="1" value="15"> 時間
+      </label>
 
       <h3>任意の祝日指定</h3>
       <p>祝日として扱いたい日付を <strong>月/日</strong> 形式でカンマ区切りで入力してください。（例: <code>5/4, 11/23</code>）</p>
@@ -90,7 +100,7 @@
         <input type="text" id="manualHolidaysInput" placeholder="5/4, 11/23">
       </label>
       <p class="hint">
-        ここで指定した日付は平日でも休日（15時間）として計算されます。
+        ここで指定した日付は平日でも休日として計算されます。
       </p>
 
       <h3>△ の扱い</h3>
